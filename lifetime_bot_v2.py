@@ -399,16 +399,19 @@ class LifetimeReservationBot:
 
     def _click_reserve_button_v2(self) -> str:
         """Helper to determine if we need to click or if we are already done."""
-        time.sleep(3) # Give the page a moment to settle
+        time.sleep(4) # Wait for page JS to settle
         
-        # 1. Try to find the PRIMARY button first using the specific test ID
+        # 1. Try to find the PRIMARY button using its specific Life Time ID
         try:
-            primary_button = self.wait.until(EC.presence_of_element_located(
-                (By.CSS_SELECTOR, "button[data-test-id='reserveButton']")
-            ))
-            txt = primary_button.text or ""
+            # We use a 10-second explicit wait here to be safe
+            primary_button = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "button[data-test-id='reserveButton']"))
+            )
+            txt = (primary_button.text or "").strip()
+            print(f"DEBUG: Main Button Found: '{txt}'")
             
-            if "Cancel" in txt or "Leave Waitlist" in txt:
+            # Use exact phrase matching to avoid rogue buttons
+            if txt in ["Cancel Reservation", "Leave Waitlist"]:
                 return "ALREADY_DONE"
             
             if "Reserve" in txt or "Waitlist" in txt:
@@ -416,26 +419,27 @@ class LifetimeReservationBot:
                 time.sleep(1)
                 self.driver.execute_script("arguments[0].click();", primary_button)
                 return "CLICKED"
-        except:
-            print("⚠️ Primary 'reserveButton' ID not found, checking general buttons...")
+        except Exception:
+            print("⚠️ Primary 'reserveButton' ID not found, checking specific text buttons...")
 
-        # 2. Fallback: Look only for buttons in the main content area to avoid nav-bar "Cancel" buttons
-        buttons = self.driver.find_elements(By.XPATH, 
-            "//main//button[contains(text(), 'Reserve')] | "
-            "//main//button[contains(text(), 'Waitlist')] | "
-            "//main//button[contains(text(), 'Cancel')]"
-        )
-
-        for button in buttons:
-            txt = button.text or ""
-            # If it's a "Cancel" button, verify it's the one for the reservation
-            if "Cancel" in txt or "Leave Waitlist" in txt:
-                return "ALREADY_DONE"
-            if "Reserve" in txt or "Waitlist" in txt:
-                self.driver.execute_script("arguments[0].click();", button)
-                return "CLICKED"
+        # 2. Fallback: Search for buttons with ONLY these exact phrases
+        # This prevents the bot from accidentally clicking "Cancel" on a search filter
+        target_phrases = ["Reserve", "Add to Waitlist", "Cancel Reservation", "Leave Waitlist"]
         
-        raise Exception("No action buttons found in the main content area")
+        buttons = self.driver.find_elements(By.TAG_NAME, "button")
+        for button in buttons:
+            txt = (button.text or "").strip()
+            if txt in target_phrases:
+                print(f"DEBUG: Found Specific Action Button: '{txt}'")
+                if "Cancel" in txt or "Leave" in txt:
+                    return "ALREADY_DONE"
+                else:
+                    self.driver.execute_script("arguments[0].click();", button)
+                    return "CLICKED"
+        
+        # If we reach here, we found nothing. We should NOT assume it's booked.
+        # We raise an error so the main loop triggers a RETRY.
+        raise Exception("No reservation-related buttons found on the page yet.")
 
 # ==============================
 # MAIN LOOP HELPERS
