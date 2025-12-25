@@ -347,19 +347,12 @@ class LifetimeReservationBot:
             return False
 
     def reserve_class(self) -> str:
-        # FIXED: Indentation corrected to 4 spaces
         if not self.is_valid_booking_day():
             print("❌ Not a valid booking day. Exiting.")
             return "EXIT"
 
         target_date = self.get_target_date()
-        class_details = (
-            f"Class: {self.TARGET_CLASS}\n"
-            f"Instructor: {self.TARGET_INSTRUCTOR}\n"
-            f"Date: {target_date}\n"
-            f"Time: {self.START_TIME} - {self.END_TIME}\n"
-            f"Who: {self.WHO_AM_I}"
-        )
+        class_details = f"Class: {self.TARGET_CLASS} | {self.START_TIME} | {self.WHO_AM_I}"
 
         try:
             self.login()
@@ -368,32 +361,35 @@ class LifetimeReservationBot:
 
             class_link = self.find_target_class()
             if not class_link:
-                raise Exception("Target class not found")
+                # If class isn't found, it might be too early. Return RETRY to loop.
+                print(f"🔍 Class not found for {self.WHO_AM_I}. Might be too early.")
+                return "RETRY"
 
             # Go to class page
             self.driver.get(class_link.get_attribute("href"))
-            time.sleep(3)
-
+            
             # --- CHECK CURRENT STATUS ---
             status = self._click_reserve_button_v2() 
 
             if status == "ALREADY_DONE":
-                print(f"🔒 {self.WHO_AM_I} is already booked. Exiting silently.")
+                print(f"🔒 {self.WHO_AM_I} is already booked. Exiting quietly.")
                 return "SUCCESS_SILENT"
 
             if status == "CLICKED":
                 if "pickleball" in (self.TARGET_CLASS or "").lower():
                     self._handle_waiver()
+                
+                # Finalizing the click
                 self._click_finish()
                 
                 if self._verify_confirmation():
                     self.send_notification("Lifetime Bot - Success", f"✅ Class reserved!\n\n{class_details}")
                     return "SUCCESS_NEW"
 
-            raise Exception("Reservation process failed to verify completion")
+            return "RETRY"
 
         except Exception as e:
-            print(f"❌ Reservation failed for {self.WHO_AM_I}: {e}")
+            print(f"❌ Error for {self.WHO_AM_I}: {e}")
             return "RETRY"
         finally:
             try:
@@ -403,23 +399,43 @@ class LifetimeReservationBot:
 
     def _click_reserve_button_v2(self) -> str:
         """Helper to determine if we need to click or if we are already done."""
-        time.sleep(2)
+        time.sleep(3) # Give the page a moment to settle
+        
+        # 1. Try to find the PRIMARY button first using the specific test ID
+        try:
+            primary_button = self.wait.until(EC.presence_of_element_located(
+                (By.CSS_SELECTOR, "button[data-test-id='reserveButton']")
+            ))
+            txt = primary_button.text or ""
+            
+            if "Cancel" in txt or "Leave Waitlist" in txt:
+                return "ALREADY_DONE"
+            
+            if "Reserve" in txt or "Waitlist" in txt:
+                self.driver.execute_script("arguments[0].scrollIntoView();", primary_button)
+                time.sleep(1)
+                self.driver.execute_script("arguments[0].click();", primary_button)
+                return "CLICKED"
+        except:
+            print("⚠️ Primary 'reserveButton' ID not found, checking general buttons...")
+
+        # 2. Fallback: Look only for buttons in the main content area to avoid nav-bar "Cancel" buttons
         buttons = self.driver.find_elements(By.XPATH, 
-            "//button[contains(text(), 'Reserve')] | "
-            "//button[contains(text(), 'Add to Waitlist')] | "
-            "//button[contains(text(), 'Cancel')] | "
-            "//button[contains(text(), 'Leave Waitlist')]"
+            "//main//button[contains(text(), 'Reserve')] | "
+            "//main//button[contains(text(), 'Waitlist')] | "
+            "//main//button[contains(text(), 'Cancel')]"
         )
 
         for button in buttons:
             txt = button.text or ""
+            # If it's a "Cancel" button, verify it's the one for the reservation
             if "Cancel" in txt or "Leave Waitlist" in txt:
                 return "ALREADY_DONE"
-            if "Reserve" in txt or "Add to Waitlist" in txt:
+            if "Reserve" in txt or "Waitlist" in txt:
                 self.driver.execute_script("arguments[0].click();", button)
                 return "CLICKED"
         
-        raise Exception("No recognizable action buttons found")
+        raise Exception("No action buttons found in the main content area")
 
 # ==============================
 # MAIN LOOP HELPERS
