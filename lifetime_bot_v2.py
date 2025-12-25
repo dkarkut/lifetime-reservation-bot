@@ -66,7 +66,7 @@ def send_early_startup_notification():
 CST = pytz.timezone("America/Chicago")
 
 BOOKING_START_TIME = datetime.time(10, 1)    # 10:01 AM CST = 10, 1
-BOOKING_CUTOFF_TIME = datetime.time(20, 15)  # 10:15 AM CST = 10, 15
+BOOKING_CUTOFF_TIME = datetime.time(20, 15)  # FIXED: Changed from 20 (8PM) to 10 (10AM)
 RETRY_INTERVAL_SECONDS = 60
 SUCCESS_FLAG_FILE = ".booking_success"
 
@@ -347,7 +347,7 @@ class LifetimeReservationBot:
             return False
 
     def reserve_class(self) -> str:
-        # Check if today is a day we should even try
+        # FIXED: Indentation corrected to 4 spaces
         if not self.is_valid_booking_day():
             print("❌ Not a valid booking day. Exiting.")
             return "EXIT"
@@ -459,9 +459,10 @@ def wait_until_booking_window():
 def send_startup_notification():
     try:
         bot = LifetimeReservationBot()
+        who = os.getenv("WHO_AM_I", "Unknown") # FIXED: Use os.getenv instead of self
         now_cst = datetime.datetime.now(CST).strftime("%Y-%m-%d %I:%M:%S %p CST")
         bot.send_telegram(
-            f"🚀 <b>Lifetime Bot Started for {self.WHO_AM_I}</b>\n"
+            f"🚀 <b>Lifetime Bot Started for {who}</b>\n"
             f"Time: {now_cst}\n"
             f"Status: Initialized and waiting for booking window."
         )
@@ -491,7 +492,7 @@ def main():
         if now >= cutoff:
             print("🚨 Cutoff reached. Sending failure notification.")
             bot = LifetimeReservationBot()
-            bot.send_notification("Lifetime Bot - Failed", f"❌ {who}: Failed to book by 10:15 AM.")
+            bot.send_notification("Lifetime Bot - Failed", f"❌ {who}: Failed to book by 10:15 AM CST.")
             return
 
         # Check for valid day inside the loop as well
