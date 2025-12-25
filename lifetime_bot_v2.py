@@ -346,7 +346,7 @@ class LifetimeReservationBot:
             print(f"❌ Complete reservation error: {e}")
             return False
 
-   def reserve_class(self) -> str:
+    def reserve_class(self) -> str:
         # Check if today is a day we should even try
         if not self.is_valid_booking_day():
             print("❌ Not a valid booking day. Exiting.")
