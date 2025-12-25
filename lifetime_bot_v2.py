@@ -345,14 +345,11 @@ class LifetimeReservationBot:
             print(f"❌ Complete reservation error: {e}")
             return False
 
-    def reserve_class(self) -> bool:
-        if os.path.exists(SUCCESS_FLAG_FILE):
-            print("🔒 Success flag exists; exiting")
-            return True
-
+   def reserve_class(self) -> str:
+        # Check if today is a day we should even try
         if not self.is_valid_booking_day():
-            print("❌ Not a valid booking day (Sun/Mon/Wed/Thu). Exiting.")
-            return True
+            print("❌ Not a valid booking day. Exiting.")
+            return "EXIT"
 
         target_date = self.get_target_date()
         class_details = (
@@ -372,39 +369,56 @@ class LifetimeReservationBot:
             if not class_link:
                 raise Exception("Target class not found")
 
-            class_url = class_link.get_attribute("href")
-            self.driver.get(class_url)
+            # Go to class page
+            self.driver.get(class_link.get_attribute("href"))
             time.sleep(3)
 
-            if self._complete_reservation():
-                with open(SUCCESS_FLAG_FILE, "w") as f:
-                    f.write("success")
+            # --- CHECK CURRENT STATUS ---
+            status = self._click_reserve_button_v2() 
 
-                if not hasattr(self, "already_reserved"):
-                    self.send_notification(
-                        "Lifetime Bot - Success",
-                        f"✅ Class reserved!\n\n{class_details}"
-                    )
-                else:
-                    self.send_notification(
-                        "Lifetime Bot - Already Reserved",
-                        f"✅ Already reserved / waitlisted.\n\n{class_details}"
-                    )
+            if status == "ALREADY_DONE":
+                print(f"🔒 {self.WHO_AM_I} is already booked. Exiting silently.")
+                return "SUCCESS_SILENT"
 
-                return True
+            if status == "CLICKED":
+                if "pickleball" in (self.TARGET_CLASS or "").lower():
+                    self._handle_waiver()
+                self._click_finish()
+                
+                if self._verify_confirmation():
+                    self.send_notification("Lifetime Bot - Success", f"✅ Class reserved!\n\n{class_details}")
+                    return "SUCCESS_NEW"
 
-            raise Exception("Reservation process failed")
+            raise Exception("Reservation process failed to verify completion")
 
         except Exception as e:
-            print(f"❌ Reservation failed: {e}")
-            # Don't spam failure notifications on every retry; main() handles cutoff failure.
-            return False
+            print(f"❌ Reservation failed for {self.WHO_AM_I}: {e}")
+            return "RETRY"
         finally:
             try:
                 self.driver.quit()
-            except Exception:
+            except:
                 pass
 
+    def _click_reserve_button_v2(self) -> str:
+        """Helper to determine if we need to click or if we are already done."""
+        time.sleep(2)
+        buttons = self.driver.find_elements(By.XPATH, 
+            "//button[contains(text(), 'Reserve')] | "
+            "//button[contains(text(), 'Add to Waitlist')] | "
+            "//button[contains(text(), 'Cancel')] | "
+            "//button[contains(text(), 'Leave Waitlist')]"
+        )
+
+        for button in buttons:
+            txt = button.text or ""
+            if "Cancel" in txt or "Leave Waitlist" in txt:
+                return "ALREADY_DONE"
+            if "Reserve" in txt or "Add to Waitlist" in txt:
+                self.driver.execute_script("arguments[0].click();", button)
+                return "CLICKED"
+        
+        raise Exception("No recognizable action buttons found")
 
 # ==============================
 # MAIN LOOP HELPERS
@@ -454,61 +468,52 @@ def send_startup_notification():
         print(f"⚠️ Could not send startup notification: {e}")
 
 def main():
-    print("🚀 Lifetime Bot starting for {self.WHO_AM_I}")
+    who = os.getenv("WHO_AM_I", "Unknown")
+    print(f"🚀 Lifetime Bot starting for {who}")
+
+    # --- ADD JITTER ---
+    # This prevents your bot and your wife's bot from hitting 
+    # the login page at the exact same second.
+    jitter = random.randint(1, 15)
+    print(f"⏳ Staggering start by {jitter} seconds to avoid login collision...")
+    time.sleep(jitter)
 
     send_startup_notification()
 
-    # Respect prior success (within this run / workspace)
-    if os.path.exists(SUCCESS_FLAG_FILE):
-        print("🔒 Booking already completed earlier. Exiting.")
-        return
-
-    # Wait until booking window opens
+    # Wait until booking window (10:01)
     wait_until_booking_window()
 
     while True:
         now = datetime.datetime.now(CST)
+        cutoff = now.replace(hour=BOOKING_CUTOFF_TIME.hour, minute=BOOKING_CUTOFF_TIME.minute, second=0, microsecond=0)
 
-        cutoff = now.replace(
-            hour=BOOKING_CUTOFF_TIME.hour,
-            minute=BOOKING_CUTOFF_TIME.minute,
-            second=0,
-            microsecond=0
-        )
-
-        # ⏹ Cutoff reached
         if now >= cutoff:
-            print("🚨 Cutoff reached (10:15 CST). Sending failure notification.")
-            try:
-                bot = LifetimeReservationBot()
-                bot.send_notification(
-                    "Lifetime Bot - Booking Failed",
-                    "❌ Failed to book class by 10:15 AM CST."
-                )
-            except Exception as notify_error:
-                print(f"⚠️ Could not send failure notification: {notify_error}")
+            print("🚨 Cutoff reached. Sending failure notification.")
+            bot = LifetimeReservationBot()
+            bot.send_notification("Lifetime Bot - Failed", f"❌ {who}: Failed to book by 10:15 AM.")
             return
 
-        # Skip entire run if today isn't a booking day (prevents wasted runs)
+        # Check for valid day inside the loop as well
         if datetime.datetime.now(CST).weekday() not in [6, 0, 2, 3]:
-            print("❌ Not a booking day (Sun/Mon/Wed/Thu). Exiting.")
+            print("❌ Not a booking day. Exiting.")
             return
 
-        # 🧹 Clean up before attempt (important on GitHub runners)
         cleanup_chrome()
 
         try:
-            print("🎯 Attempting booking...")
             bot = LifetimeReservationBot()
-            if bot.reserve_class():
-                print("✅ Booking successful. Exiting.")
+            result = bot.reserve_class()
+            
+            # SUCCESS_NEW: Just booked it (Sent notification)
+            # SUCCESS_SILENT: Already booked (No notification sent)
+            if result in ["SUCCESS_NEW", "SUCCESS_SILENT"]:
+                print(f"✅ {who}: Task finished successfully.")
                 return
         except Exception as e:
-            print(f"⚠️ Booking attempt error: {e}")
+            print(f"⚠️ Loop error: {e}")
 
         print(f"🔁 Retrying in {RETRY_INTERVAL_SECONDS} seconds...")
         time.sleep(RETRY_INTERVAL_SECONDS)
-
 
 if __name__ == "__main__":
     send_early_startup_notification()
