@@ -454,13 +454,7 @@ def send_startup_notification():
         print(f"⚠️ Could not send startup notification: {e}")
 
 def main():
-    # --- INSERT THE CHANGE BELOW THIS LINE ---
-    today_str = datetime.datetime.now(CST).strftime("%Y-%m-%d")
-    if os.getenv("SUCCESS_DATE") == today_str:
-        print(f"✅ Success already recorded for {today_str}. Exiting.")
-        return
-    # --- INSERT THE CHANGE ABOVE THIS LINE ---
-    
+
     print(f"🚀 Lifetime Bot starting for {os.getenv('WHO_AM_I')}")
 
     send_startup_notification()
@@ -516,7 +510,11 @@ def main():
         print(f"🔁 Retrying in {RETRY_INTERVAL_SECONDS} seconds...")
         time.sleep(RETRY_INTERVAL_SECONDS)
 
-
 if __name__ == "__main__":
-    send_early_startup_notification()
-    main()
+    # Move the check here to prevent even the "Early" notification from firing
+    today_str = datetime.datetime.now(CST).strftime("%Y-%m-%d")
+    if os.getenv("SUCCESS_DATE") == today_str:
+        print(f"✅ Success already recorded for {today_str}. Exiting.")
+    else:
+        send_early_startup_notification()
+        main()
