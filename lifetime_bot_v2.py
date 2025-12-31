@@ -446,7 +446,7 @@ def send_startup_notification():
         bot = LifetimeReservationBot()
         now_cst = datetime.datetime.now(CST).strftime("%Y-%m-%d %I:%M:%S %p CST")
         bot.send_telegram(
-            f"🚀 <b>Lifetime Bot Started for {self.WHO_AM_I}</b>\n"
+            f"🚀 <b>Lifetime Bot Started for {os.getenv('WHO_AM_I')}</b>\n"
             f"Time: {now_cst}\n"
             f"Status: Initialized and waiting for booking window."
         )
@@ -454,7 +454,14 @@ def send_startup_notification():
         print(f"⚠️ Could not send startup notification: {e}")
 
 def main():
-    print("🚀 Lifetime Bot starting for {self.WHO_AM_I}")
+    # --- INSERT THE CHANGE BELOW THIS LINE ---
+    today_str = datetime.datetime.now(CST).strftime("%Y-%m-%d")
+    if os.getenv("SUCCESS_DATE") == today_str:
+        print(f"✅ Success already recorded for {today_str}. Exiting.")
+        return
+    # --- INSERT THE CHANGE ABOVE THIS LINE ---
+    
+    print(f"🚀 Lifetime Bot starting for {os.getenv('WHO_AM_I')}")
 
     send_startup_notification()
 
