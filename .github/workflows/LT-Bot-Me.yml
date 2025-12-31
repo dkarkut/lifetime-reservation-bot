@@ -56,6 +56,7 @@ jobs:
           TARGET_DATE=$TARGET_DATE
           START_TIME=${{ secrets.START_TIME }}
           END_TIME=${{ secrets.END_TIME }}
+          SUCCESS_DATE: ${{ env.SUCCESS_DATE }}
 
           NOTIFICATION_METHOD=${{ secrets.NOTIFICATION_METHOD }}
 
