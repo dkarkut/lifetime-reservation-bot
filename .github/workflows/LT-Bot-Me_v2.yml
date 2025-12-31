@@ -62,7 +62,7 @@ jobs:
 
           # 📅 Booking logic
           TARGET_DATE=$TARGET_DATE
-          SUCCESS_DATE: ${{ env.SUCCESS_DATE }}
+          SUCCESS_DATE=${{ vars.SUCCESS_DATE }}
 
           # 🔔 Notifications
           EMAIL_SENDER=${{ secrets.EMAIL_SENDER }}
