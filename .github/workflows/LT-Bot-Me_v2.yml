@@ -1,4 +1,4 @@
-name: Lifetime Bot Automation - Dieter_v2
+name: Lifetime Bot Automation - Dieter_v3
 
 on:
   workflow_dispatch: {}
@@ -78,4 +78,4 @@ jobs:
 
       - name: Run Lifetime reservation bot
         run: |
-          python lifetime_bot_v2.py
+          python lifetime_bot_v3.py
