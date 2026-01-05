@@ -9,7 +9,7 @@ on:
     - cron: '45 15 * * 0,1,3,4'
 
 concurrency:
-  group: lifetime-bot-d
+  group: lifetime-bot-q
   cancel-in-progress: false
 
 jobs:
