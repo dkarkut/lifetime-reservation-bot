@@ -41,8 +41,8 @@ jobs:
 
           cat > .env <<EOF
           # 🔐 Credentials (secrets)
-          LIFETIME_USERNAME=${{ secrets.LIFETIME_USERNAME }}
-          LIFETIME_PASSWORD=${{ secrets.LIFETIME_PASSWORD }}
+          LIFETIME_USERNAME=${{ secrets.QUEEN_LIFETIME_USERNAME }}
+          LIFETIME_PASSWORD=${{ secrets.QUEEN_LIFETIME_PASSWORD }}
 
           # 🏋️ Constants
           LIFETIME_CLUB_NAME=San Antonio 281
