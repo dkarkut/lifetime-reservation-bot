@@ -1,4 +1,4 @@
-# Lifetime Fitness Reservation Bot v2 (Iterated from Tyler's Original)
+# Lifetime Fitness Reservation Bot v3 (Iterated from Tyler's Original)
 
 An automated bot that helps you reserve classes at Life Time Fitness clubs. The bot can be scheduled to run at specific times to secure your spot in popular classes as soon as they become available.
 
