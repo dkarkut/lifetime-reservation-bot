@@ -64,7 +64,7 @@ def send_early_startup_notification():
 
 CST = pytz.timezone("America/Chicago")
 
-BOOKING_START_TIME = datetime.time(10, 1)    # 10:01 AM CST = 10, 1
+BOOKING_START_TIME = datetime.time(10, 0)    # 10:00 AM CST = 10, 0
 BOOKING_CUTOFF_TIME = datetime.time(23, 15)  # 10:15 AM CST = 10, 15
 RETRY_INTERVAL_SECONDS = 60
 SUCCESS_FLAG_FILE = ".booking_success"
@@ -420,7 +420,7 @@ def cleanup_chrome():
 
 
 def wait_until_booking_window():
-    """Block until 10:01 AM CST."""
+    """Block until 10:00 AM CST."""
     now = datetime.datetime.now(CST)
 
     start = now.replace(
@@ -432,7 +432,7 @@ def wait_until_booking_window():
 
     if now < start:
         sleep_seconds = (start - now).total_seconds()
-        print(f"⏳ Waiting {int(sleep_seconds)} seconds until booking window (10:01 CST)")
+        print(f"⏳ Waiting {int(sleep_seconds)} seconds until booking window (10:00 CST)")
         time.sleep(sleep_seconds)
 
     print("✅ Booking window open")
