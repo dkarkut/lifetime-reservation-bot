@@ -4,9 +4,9 @@ on:
   workflow_dispatch: {}
 
   schedule:
-    # 9:45 AM CST (15:45 UTC) 
+    # 9:25 AM CST (15:25 UTC) 
     # Runs on Sunday (0), Monday (1), Wednesday (3), and Thursday (4)
-    - cron: '45 15 * * 0,1,3,4'
+    - cron: '25 15 * * 0,1,3,4'
 
 concurrency:
   group: lifetime-bot-q
